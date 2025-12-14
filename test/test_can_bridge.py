@@ -44,6 +44,27 @@ def main():
     assert pong["type"] == "pong" and pong["id"] == 9, pong
 
     time.sleep(0.2)
+
+    logging.info("Subscribing  to read can packets from iface = %s", resp["items"][0])
+
+    send_jsonl(s, {"type": "subscribe", "ifaces": [resp["items"][0]]})
+    resp = recv_jsonl(s)
+    assert resp["type"] == "subscribed"
+
+    # read frames for 2 seconds
+    t0 = time.time()
+    n = 0
+    while time.time() - t0 < 2.0:
+        obj = recv_jsonl(s)
+        if obj["type"] == "frame":
+            n += 1
+
+    logging.info("received %d frames in 2s (%.1f fps)", n, n / 2.0)
+
+    send_jsonl(s, {"type": "unsubscribe"})
+    resp = recv_jsonl(s)
+    assert resp["type"] == "unsubscribed"
+
     s.close()
 
 

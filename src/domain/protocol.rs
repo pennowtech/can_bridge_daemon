@@ -15,6 +15,12 @@ pub enum ClientRequest {
 
     /// ask daemon for available CAN interfaces (stub for now)
     ListIfaces,
+
+    /// subscribe to can frames from specific interfaces
+    Subscribe { ifaces: Vec<String> },
+
+    /// stop receiving can frames
+    Unsubscribe,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -32,6 +38,22 @@ pub enum ServerResponse {
 
     /// list of interfaces
     Ifaces { items: Vec<String> },
+
+    /// can frame subscription ack
+    Subscribed { ifaces: Vec<String> },
+
+    /// can frame unsubscription ack
+    Unsubscribed,
+
+    /// streamed can frame event
+    Frame {
+        ts_ms: u64,
+        iface: String,
+        dir: String,
+        id: u32,
+        is_fd: bool,
+        data_hex: String,
+    },
 
     /// Generic error response (protocol, parsing, etc.)
     Error { message: String },
