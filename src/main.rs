@@ -1,13 +1,14 @@
 use anyhow::Result;
 use clap::Parser;
+use std::sync::Arc;
 use tracing::{info, warn};
 
 mod app;
 mod domain;
 mod infra;
+mod ports;
 
-/// CLI arguments (Step 0/1).
-/// Keep this small and extend later.
+/// CLI arguments
 #[derive(Parser, Debug, Clone)]
 #[command(author, version, about)]
 struct Args {
@@ -25,10 +26,13 @@ async fn main() -> Result<()> {
         .init();
 
     let args = Args::parse();
-    info!(bind=%args.bind, "can_bridge_daemon starting (step 0/1)");
+    info!(bind=%args.bind, "can_bridge_daemon starting");
+
+    // Step 3: stub discovery
+    let discovery = Arc::new(infra::discovery_stub::StubDiscovery::new());
 
     // Build application service (use-case layer).
-    let service = app::BridgeService::new();
+    let service = app::BridgeService::new(discovery);
 
     // Start TCP server (infrastructure adapter).
     let server = infra::transport_tcp::TcpJsonlServer::new(args.bind.parse()?);
@@ -47,7 +51,7 @@ async fn main() -> Result<()> {
     tokio::signal::ctrl_c().await?;
     info!("Ctrl+C received; shutting down");
 
-    // For step 1, we just abort the server task on shutdown.
+    // Fornow, we just abort the server task on shutdown.
     // Later steps can do graceful draining.
     server_handle.abort();
 

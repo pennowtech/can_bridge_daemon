@@ -8,47 +8,47 @@ logging.basicConfig(
 )
 
 
-def send_jsonl(sock: socket.socket, obj: dict):
+def send_jsonl(sock, obj):
     line = json.dumps(obj) + "\n"
     logging.debug("-> %s", line.strip())
     sock.sendall(line.encode("utf-8"))
 
 
-def recv_jsonl(sock: socket.socket) -> dict:
+def recv_jsonl(sock):
     buf = b""
     while b"\n" not in buf:
         chunk = sock.recv(4096)
         if not chunk:
-            raise RuntimeError("server closed connection")
+            raise RuntimeError("server closed")
         buf += chunk
-    line, _rest = buf.split(b"\n", 1)
+    line, _ = buf.split(b"\n", 1)
     text = line.decode("utf-8")
     logging.debug("<- %s", text)
     return json.loads(text)
 
 
 def main():
-    addr = ("127.0.0.1", 9500)
-    logging.info("connecting to %s:%s", *addr)
-    s = socket.create_connection(addr, timeout=3)
+    s = socket.create_connection(("127.0.0.1", 9500), timeout=3)
 
-    # Step 2: receive hello from server
     hello = recv_jsonl(s)
     assert hello["type"] == "hello", hello
-    logging.info("server hello: %s", hello)
-
-    # Send hello_ack
     send_jsonl(s, {"type": "hello_ack", "client": "py-test", "protocol": "jsonl"})
 
-    # Ping/pong still works
-    send_jsonl(s, {"type": "ping", "id": 1})
+    # Step 3: list_ifaces
+    send_jsonl(s, {"type": "list_ifaces"})
     resp = recv_jsonl(s)
-    assert resp["type"] == "pong" and resp["id"] == 1, resp
-    logging.info("OK ping/pong after handshake")
+    assert resp["type"] == "ifaces", resp
+    logging.info("ifaces=%s", resp["items"])
+    assert "vcan0" in resp["items"], resp
+
+    # still ping works
+    send_jsonl(s, {"type": "ping", "id": 7})
+    pong = recv_jsonl(s)
+    assert pong["type"] == "pong" and pong["id"] == 7, pong
+    logging.info("OK")
 
     time.sleep(0.2)
     s.close()
-    logging.info("closed")
 
 
 if __name__ == "__main__":
