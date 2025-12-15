@@ -13,6 +13,7 @@
 
 use std::{
     collections::HashMap,
+    os::fd::{AsRawFd, FromRawFd, RawFd},
     sync::{Arc, Mutex},
 };
 
@@ -129,15 +130,38 @@ impl SocketCanTx {
     ) -> Result<()> {
         use socketcan::{CanSocket, Socket};
 
-        let sock = CanSocket::open(iface).with_context(|| format!("open CanSocket({iface})"))?;
-        match sock.write_frame(frame) {
+        let sock_fd = {
+            let mut cache = self.cache.lock().expect("socket cache poisoned");
+
+            let sock = match cache.classic.get(iface) {
+                Some(s) => s,
+                None => {
+                    let s = CanSocket::open(iface)
+                        .with_context(|| format!("open CanSocket({iface})"))?;
+                    cache.classic.insert(iface.to_string(), s);
+                    cache.classic.get(iface).unwrap()
+                }
+            };
+
+            dup(sock).context("dup CanSocket fd")?
+        };
+
+        // Safety: we just dup()ed the fd, so we own it now.
+        // The original socket remains in the cache.
+        // We must not close the original socket here.
+        let duped_socket = unsafe { CanSocket::from_raw_fd(sock_fd) };
+
+        match duped_socket.write_frame(frame) {
             Ok(_) => {
                 info!(iface=%iface, id=%id, len=%len, "tx sent (classic)");
                 Ok(())
             }
             Err(e) => {
-                warn!(iface=%iface, id=%id, error=%e, "CAN(classic) write failed");
+                warn!(iface=%iface, id=%id, error=%e, "classic write failed; evicting socket");
+                let mut cache = self.cache.lock().expect("socket cache poisoned");
+                cache.classic.remove(iface);
                 Err(anyhow!(e))
+                    .with_context(|| format!("write_frame(classic) iface={iface} id={id}"))
             }
         }
     }
