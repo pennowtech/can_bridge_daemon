@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-//! discovery_netlink
+//! iface_discovery_netlink
 //!
 //! Layer: Infrastructure
 //! Purpose:
