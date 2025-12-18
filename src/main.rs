@@ -24,7 +24,15 @@ mod ports;
 #[command(author, version, about)]
 struct Args {
     #[arg(long, default_value = "127.0.0.1:9500")]
-    bind: String,
+    tcp_bind: String,
+
+    /// WebSocket bind address, e.g. 127.0.0.1:9501 (path is /ws)
+    #[arg(long, default_value = "127.0.0.1:9501")]
+    ws_bind: String,
+
+    /// gRPC bind address, e.g. 127.0.0.1:9502
+    #[arg(long, default_value = "127.0.0.1:9502")]
+    grpc_bind: String,
 
     /// Also run the fake generator (useful if your bus is quiet).
     #[arg(long)]
@@ -38,12 +46,12 @@ async fn main() -> Result<()> {
         .init();
 
     let args = Args::parse();
-    info!(bind=%args.bind, "can_bridge_daemon starting");
+    info!(bind=%args.tcp_bind, "can_bridge_daemon starting");
 
     // Choose discovery implementation:
     let discovery: Arc<dyn DiscoveryPort> =
-        Arc::new(infra::discovery_netlink::NetlinkDiscovery::new());
-    // let discovery = Arc::new(infra::discovery_stub::StubDiscovery::new());
+        Arc::new(infra::iface_discovery_netlink::NetlinkDiscovery::new());
+    // let discovery = Arc::new(infra::iface_discovery_dummy::StubDiscovery::new());
 
     // Choose CAN TX implementation:
     // (for now, only SocketCAN TX is implemented)
@@ -76,7 +84,7 @@ async fn main() -> Result<()> {
     }
 
     // Start TCP server
-    let server = infra::transport_tcp::TcpJsonlServer::new(args.bind.parse()?);
+    let server = infra::transport_tcp::TcpJsonlServer::new(args.tcp_bind.parse()?);
     let server_handle = tokio::spawn({
         let service = service.clone();
         async move {
@@ -86,9 +94,33 @@ async fn main() -> Result<()> {
         }
     });
 
+    // WebSocket server
+    let ws_server = infra::transport_ws::WsJsonServer::new(args.ws_bind.parse()?);
+    let ws_handle = tokio::spawn({
+        let service = service.clone();
+        async move {
+            if let Err(e) = ws_server.run(service).await {
+                warn!(error=%e, "ws server exited with error");
+            }
+        }
+    });
+
+    // gRPC server
+    let grpc_server = infra::transport_grpc::GrpcServer::new(args.grpc_bind.parse()?);
+    let grpc_handle = tokio::spawn({
+        let service = service.clone();
+        async move {
+            if let Err(e) = grpc_server.run(service).await {
+                warn!(error=%e, "grpc server exited with error");
+            }
+        }
+    });
+
     info!("daemon running (terminate with Ctrl+C)");
     tokio::signal::ctrl_c().await?;
     info!("Ctrl+C received; shutting down");
     server_handle.abort();
+    ws_handle.abort();
+    grpc_handle.abort();
     Ok(())
 }

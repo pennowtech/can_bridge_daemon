@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+package canbridge.v1;
+
+service CanBridge {
+  rpc Ping(PingReq) returns (PingResp);
+  rpc ListIfaces(Empty) returns (IfacesResp);
+  rpc SendFrame(SendFrameReq) returns (SendAck);
+  rpc Subscribe(SubscribeReq) returns (stream FrameEvent);
+}
+
+message Empty {}
+
+message PingReq {
+  uint64 id = 1;
+}
+message PingResp {
+  uint64 id = 1;
+}
+
+message IfacesResp {
+  repeated string items = 1;
+}
+
+message SendFrameReq {
+  string iface = 1;
+  uint32 id = 2;
+  bool is_fd = 3;
+  bool brs = 4;
+  bool esi = 5;
+  string data_hex = 6;
+}
+
+message SendAck {
+  bool ok = 1;
+  string error = 2; // empty if ok=true
+}
+
+message SubscribeReq {
+  repeated string ifaces = 1;
+}
+
+// This should be in sync with src/domain/frame.rs
+message FrameEvent {
+  uint64 ts_ms = 1;
+  string iface = 2;
+  string dir = 3;    // "rx" or "tx"
+  uint32 id = 4;
+  bool is_fd = 5;
+  string data_hex = 6;
+}

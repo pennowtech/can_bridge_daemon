@@ -18,7 +18,6 @@ use std::{
 
 use anyhow::{anyhow, bail, Context, Result};
 use futures::future::BoxFuture;
-use nix::unistd::dup;
 use tracing::{info, warn};
 
 use crate::ports::can_tx::CanTxPort;
@@ -32,7 +31,7 @@ struct SocketCache {
 
 /// SocketCAN TX adapter with RawFd-based caching.
 ///
-/// Properties:
+/// TODO: Implement cache Properties(Right now just placeholders):
 /// - One master socket per iface
 /// - Each send dup()s the fd → safe concurrent writers
 /// - Evicts cache on write failure

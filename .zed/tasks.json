@@ -1,7 +1,7 @@
 [
     {
-        "label": "Run App",
-        "command": "RUST_LOG=debug cargo run -- --bind 127.0.0.1:9500",
+        "label": "Run CAN Bridge Daemon",
+        "command": "RUST_LOG=info cargo run -- --tcp-bind 127.0.0.1:9500 --ws-bind 127.0.0.1:9501",
         "cwd": "$ZED_WORKTREE_ROOT",
         "shell": {
             "with_arguments": {
@@ -13,9 +13,33 @@
         "use_new_terminal": true
     },
     {
-        "label": "Run Test (WS+TCP+TX+RX)",
-        "command": "python3 test/test_can_bridge.py",
-        "cwd": "$ZED_WORKTREE_ROOT",
+        "label": "Test CAN bridge daemon over TCP",
+        "command": "poetry run python test/test_can_bridge_tcp.py",
+        "cwd": "$ZED_WORKTREE_ROOT/test",
+        "shell": {
+            "with_arguments": {
+                "program": "/bin/bash",
+                "args": ["-lc"]
+            }
+        },
+        "reveal": "always"
+    },
+    {
+        "label": "Test CAN bridge daemon over Websockets",
+        "command": "poetry run python test_can_bridge_ws.py",
+        "cwd": "$ZED_WORKTREE_ROOT/test",
+        "shell": {
+            "with_arguments": {
+                "program": "/bin/bash",
+                "args": ["-lc"]
+            }
+        },
+        "reveal": "always"
+    },
+    {
+        "label": "Test CAN bridge daemon over gRPC",
+        "command": "poetry run python test_can_bridge_grpc.py",
+        "cwd": "$ZED_WORKTREE_ROOT/test",
         "shell": {
             "with_arguments": {
                 "program": "/bin/bash",
