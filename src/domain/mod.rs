@@ -8,5 +8,7 @@
 //! Notes:
 //! - Standard file header. Keep stable to avoid churn.
 
+pub mod binary_message;
 pub mod frame;
 pub mod protocol;
+

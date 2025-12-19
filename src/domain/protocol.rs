@@ -17,8 +17,8 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ClientRequest {
-    /// handshake ack sent by client after receiving ServerResponse::Hello
-    HelloAck { client: String, protocol: String },
+    /// handshake ack sent by client after receiving DaemonResponse::HelloAck
+    ClientHello { client: String, protocol: String },
 
     /// Simple liveness test
     Ping { id: u64 },
@@ -52,9 +52,9 @@ pub enum ClientRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
-pub enum ServerResponse {
+pub enum DaemonResponse {
     /// handshake greeting sent immediately on connect
-    Hello {
+    HelloAck {
         version: String,
         features: Vec<String>,
         server_name: String,

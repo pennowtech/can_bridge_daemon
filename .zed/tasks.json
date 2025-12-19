@@ -25,7 +25,7 @@
         "reveal": "always"
     },
     {
-        "label": "Test CAN bridge daemon over Binary TCP",
+        "label": "Test CAN bridge daemon over binary TCP",
         "command": "poetry run python test_can_bridge_tcp_binary.py",
         "cwd": "$ZED_WORKTREE_ROOT/test",
         "shell": {
@@ -39,6 +39,18 @@
     {
         "label": "Test CAN bridge daemon over Websockets",
         "command": "poetry run python test_can_bridge_ws.py",
+        "cwd": "$ZED_WORKTREE_ROOT/test",
+        "shell": {
+            "with_arguments": {
+                "program": "/bin/bash",
+                "args": ["-lc"]
+            }
+        },
+        "reveal": "always"
+    },
+    {
+        "label": "Test CAN bridge daemon over binary Websockets",
+        "command": "poetry run python test_can_bridge_ws_binary.py",
         "cwd": "$ZED_WORKTREE_ROOT/test",
         "shell": {
             "with_arguments": {

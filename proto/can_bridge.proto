@@ -3,6 +3,8 @@ syntax = "proto3";
 package canbridge.v1;
 
 service CanBridge {
+  //gRPC does not require a handshake for correctness. But for behavioral consistency across TCP/WS/gRPC, call:
+  rpc Hello(ClientHello) returns (HelloAck);
   rpc Ping(PingReq) returns (PingResp);
   rpc ListIfaces(Empty) returns (IfacesResp);
   rpc SendFrame(SendFrameReq) returns (SendAck);
@@ -10,6 +12,17 @@ service CanBridge {
 }
 
 message Empty {}
+
+message ClientHello {
+  string client = 1;
+  string protocol = 2;
+}
+
+message HelloAck {
+  string version = 1;
+  string server_name = 2;
+  repeated string features = 3;
+}
 
 message PingReq {
   uint64 id = 1;
@@ -44,7 +57,7 @@ message SubscribeReq {
 message FrameEvent {
   uint64 ts_ms = 1;
   string iface = 2;
-  string dir = 3;    // "rx" or "tx"
+  string dir = 3; // "rx" or "tx"
   uint32 id = 4;
   bool is_fd = 5;
   string data_hex = 6;

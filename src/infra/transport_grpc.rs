@@ -57,6 +57,22 @@ type SubscribeStream =
 
 #[tonic::async_trait]
 impl CanBridge for GrpcAdapter {
+    async fn hello(&self, req: Request<pb::ClientHello>) -> Result<Response<pb::HelloAck>, Status> {
+        let r = req.into_inner();
+        tracing::info!(client=%r.client, protocol=%r.protocol, "grpc hello");
+
+        Ok(Response::new(pb::HelloAck {
+            version: env!("CARGO_PKG_VERSION").to_string(),
+            server_name: "can-bridge-daemon".to_string(),
+            features: vec![
+                "grpc".into(),
+                "ws-jsonl".into(),
+                "ws-binary".into(),
+                "tcp".into(),
+            ],
+        }))
+    }
+
     async fn ping(&self, req: Request<pb::PingReq>) -> Result<Response<pb::PingResp>, Status> {
         let id = req.into_inner().id;
         let resp = self.service.handle(ClientRequest::Ping { id }).await;

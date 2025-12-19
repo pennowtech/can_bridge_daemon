@@ -5,9 +5,10 @@ import threading
 import time
 from typing import Optional
 
-import websocket  # websocket-client
+import argparse
+import websocket
 
-WS_URL = "ws://127.0.0.1:9501/ws"
+WS_URL = "ws://127.0.0.1:9501/ws/text"
 
 UNARY_TIMEOUT = 3.0
 WAIT_FOR_FRAMES_SECONDS = 10.0
@@ -69,15 +70,16 @@ def ws_recv_json(ws: websocket.WebSocket, timeout: float) -> dict:
     return json.loads(raw)
 
 
-def connect_ws() -> websocket.WebSocket:
-    ws = websocket.create_connection(WS_URL, timeout=UNARY_TIMEOUT)
+def connect_ws(url: str ) -> websocket.WebSocket:
+    ws = websocket.create_connection(url, timeout=UNARY_TIMEOUT)
 
-    # Server hello first
-    hello = ws_recv_json(ws, UNARY_TIMEOUT)
-    assert_eq(hello.get("type"), "hello", "expected hello")
+    # client client_hello
+    ws_send(ws, {"type": "client_hello", "client": "py-ws-test", "protocol": "json"})
 
-    # client hello_ack
-    ws_send(ws, {"type": "hello_ack", "client": "py-ws-test", "protocol": "json"})
+    # Server hello_ack
+    hello_ack = ws_recv_json(ws, UNARY_TIMEOUT)
+    assert_eq(hello_ack.get("type"), "hello_ack", "expected hello_ack")
+
     return ws
 
 
@@ -409,14 +411,14 @@ def test_subscribe_filters_ifaces(ws):
     logger.info("✓ iface filtering OK (0 frames)")
 
 
-def test_subscribe_cancel_by_close():
+def test_subscribe_cancel_by_close(server_url: str):
     """
     WS has no explicit cancel; typical pattern is to close connection or unsubscribe.
     We mimic the gRPC cancel test by closing the WS and ensuring no hang.
     """
     logger.info("=== test_subscribe_cancel_by_close ===")
 
-    ws = connect_ws()
+    ws = connect_ws(server_url)
     iface = pick_iface(ws) or "vcan0"
 
     stop_event = threading.Event()
@@ -438,7 +440,7 @@ def test_subscribe_cancel_by_close():
     logger.info("✓ ws cancel/close OK")
 
 
-def test_parallel_subscriptions(iface):
+def test_parallel_subscriptions(iface, server_url: str = WS_URL):
     logger.info("=== test_parallel_subscriptions === iface=%s", iface)
     log_expected_traffic(iface, 3.0)
 
@@ -449,7 +451,7 @@ def test_parallel_subscriptions(iface):
     def run_one(idx):
         nonlocal results, errors
         try:
-            ws = connect_ws()
+            ws = connect_ws(server_url)
 
             stop_event = threading.Event()
             out_q: queue.Queue = queue.Queue()
@@ -540,8 +542,12 @@ def test_backpressure_behavior(ws, iface):
 # Runner
 # -----------------------------
 def main():
-    logger.info("Connecting WS: %s", WS_URL)
-    ws = connect_ws()
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--url", default=WS_URL)
+    args = ap.parse_args()
+
+    logger.info("Connecting WS: %s", args.url)
+    ws = connect_ws(args.url)
 
     iface = pick_iface(ws)
     if iface is None:
@@ -559,8 +565,8 @@ def main():
         lambda: test_subscribe_and_receive_frames(ws, iface),
         lambda: test_subscribe_filters_ifaces(ws),
         lambda: test_backpressure_behavior(ws, iface),
-        lambda: test_subscribe_cancel_by_close(),
-        lambda: test_parallel_subscriptions(iface),
+        lambda: test_subscribe_cancel_by_close(args.url),
+        lambda: test_parallel_subscriptions(iface, args.url),
     ]
 
     for t in tests:

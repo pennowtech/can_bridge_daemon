@@ -36,6 +36,7 @@ import time
 import traceback
 
 import grpc
+
 import proto.can_bridge_pb2 as pb
 import proto.can_bridge_pb2_grpc as stub
 
@@ -277,6 +278,24 @@ def wait_for_frames_zero(out_q: queue.Queue, seconds: float) -> int:
 # -----------------------------
 # Test Cases
 # -----------------------------
+def test_hello(client):
+    logger.info("=== test_hello ===")
+    resp = client.Hello(
+        pb.ClientHello(client="py-grpc-test", protocol="grpc"), timeout=UNARY_TIMEOUT
+    )
+    logger.debug("HelloAck=%s", resp)
+
+    # Minimal assertions: must not be empty
+    assert_true(resp.version != "", "hello_ack.version must not be empty")
+    assert_true(resp.server_name != "", "hello_ack.server_name must not be empty")
+    logger.info(
+        "✓ hello OK (version=%s server_name=%s features=%s)",
+        resp.version,
+        resp.server_name,
+        list(resp.features),
+    )
+
+
 def test_ping(client):
     logger.info("=== test_ping ===")
     resp = client.Ping(pb.PingReq(id=42), timeout=UNARY_TIMEOUT)
@@ -560,6 +579,7 @@ def main():
         iface = "vcan0"  # best-effort default
 
     tests = [
+        lambda c: test_hello(c),
         lambda c: test_ping(c),
         lambda c: test_list_ifaces(c),
         lambda c: test_send_frame_invalid_hex(c, iface),

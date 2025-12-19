@@ -34,6 +34,11 @@ class CanBridgeStub(object):
         Args:
             channel: A grpc.Channel.
         """
+        self.Hello = channel.unary_unary(
+                '/canbridge.v1.CanBridge/Hello',
+                request_serializer=proto_dot_can__bridge__pb2.ClientHello.SerializeToString,
+                response_deserializer=proto_dot_can__bridge__pb2.HelloAck.FromString,
+                _registered_method=True)
         self.Ping = channel.unary_unary(
                 '/canbridge.v1.CanBridge/Ping',
                 request_serializer=proto_dot_can__bridge__pb2.PingReq.SerializeToString,
@@ -58,6 +63,13 @@ class CanBridgeStub(object):
 
 class CanBridgeServicer(object):
     """Missing associated documentation comment in .proto file."""
+
+    def Hello(self, request, context):
+        """gRPC does not require a handshake for correctness. But for behavioral consistency across TCP/WS/gRPC, call:
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
 
     def Ping(self, request, context):
         """Missing associated documentation comment in .proto file."""
@@ -86,6 +98,11 @@ class CanBridgeServicer(object):
 
 def add_CanBridgeServicer_to_server(servicer, server):
     rpc_method_handlers = {
+            'Hello': grpc.unary_unary_rpc_method_handler(
+                    servicer.Hello,
+                    request_deserializer=proto_dot_can__bridge__pb2.ClientHello.FromString,
+                    response_serializer=proto_dot_can__bridge__pb2.HelloAck.SerializeToString,
+            ),
             'Ping': grpc.unary_unary_rpc_method_handler(
                     servicer.Ping,
                     request_deserializer=proto_dot_can__bridge__pb2.PingReq.FromString,
@@ -116,6 +133,33 @@ def add_CanBridgeServicer_to_server(servicer, server):
  # This class is part of an EXPERIMENTAL API.
 class CanBridge(object):
     """Missing associated documentation comment in .proto file."""
+
+    @staticmethod
+    def Hello(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/canbridge.v1.CanBridge/Hello',
+            proto_dot_can__bridge__pb2.ClientHello.SerializeToString,
+            proto_dot_can__bridge__pb2.HelloAck.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
 
     @staticmethod
     def Ping(request,
