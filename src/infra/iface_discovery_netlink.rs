@@ -45,12 +45,12 @@ impl DiscoveryPort for NetlinkDiscovery {
                 let mut name: Option<String> = None;
 
                 // IMPORTANT:
-                // Your `LinkMessage` uses `attributes` (not `nlas`).
+                // Our `LinkMessage` uses `attributes` (not `nlas`).
                 // And the attribute enum type comes from *rtnetlink’s* dependency version.
                 // Therefore we must match using the attribute type from the message itself.
                 for attr in msg.attributes.into_iter() {
                     // This relies on the attribute enum being in the same crate instance as msg.
-                    // If you still have netlink-packet-route version skew, remove your direct
+                    // If you still have netlink-packet-route version skew, remove direct
                     // netlink-packet-route dependency or pin it to match rtnetlink.
                     if let netlink_packet_route::link::LinkAttribute::IfName(n) = attr {
                         name = Some(n);

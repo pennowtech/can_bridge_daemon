@@ -16,7 +16,7 @@ use tokio::sync::broadcast;
 use crate::{
     domain::{
         frame::FrameEvent,
-        protocol::{ClientRequest, ServerResponse},
+        protocol::{ClientRequest, DaemonResponse},
     },
     ports::{can_tx::CanTxPort, discovery::DiscoveryPort},
 };
@@ -68,21 +68,21 @@ impl BridgeService {
     /// Handle a single request and return a response.
     /// NOTE: Subscribe/Unsubscribe are handled in the transport layer because they
     /// are per-connection state. (Transport replies with Subscribed/Unsubscribed.)
-    pub async fn handle(&self, req: ClientRequest) -> ServerResponse {
+    pub async fn handle(&self, req: ClientRequest) -> DaemonResponse {
         match req {
-            ClientRequest::Ping { id } => ServerResponse::Pong { id },
+            ClientRequest::Ping { id } => DaemonResponse::Pong { id },
             ClientRequest::ListIfaces => match self.discovery.list_can_ifaces().await {
-                Ok(items) => ServerResponse::Ifaces { items },
-                Err(e) => ServerResponse::Error {
+                Ok(items) => DaemonResponse::Ifaces { items },
+                Err(e) => DaemonResponse::Error {
                     message: format!("list_ifaces failed: {e}"),
                 },
             },
 
-            ClientRequest::HelloAck { .. } => ServerResponse::Error {
-                message: "hello_ack is handled by transport layer".to_string(),
+            ClientRequest::ClientHello { .. } => DaemonResponse::Error {
+                message: "client_hello is handled by transport layer".to_string(),
             },
 
-            ClientRequest::Subscribe { .. } | ClientRequest::Unsubscribe => ServerResponse::Error {
+            ClientRequest::Subscribe { .. } | ClientRequest::Unsubscribe => DaemonResponse::Error {
                 message: "subscribe/unsubscribe are handled by transport layer".to_string(),
             },
 
@@ -97,7 +97,7 @@ impl BridgeService {
                 let data = match hex_to_bytes(&data_hex) {
                     Ok(v) => v,
                     Err(e) => {
-                        return ServerResponse::SendAck {
+                        return DaemonResponse::SendAck {
                             ok: false,
                             error_message: Some(format!("bad data_hex: {e}")),
                         }
@@ -109,7 +109,7 @@ impl BridgeService {
                     .send(iface.clone(), id, is_fd, brs, esi, data.clone())
                     .await
                 {
-                    return ServerResponse::SendAck {
+                    return DaemonResponse::SendAck {
                         ok: false,
                         error_message: Some(e.to_string()),
                     };
@@ -127,7 +127,13 @@ impl BridgeService {
                     data,
                 });
 
-                ServerResponse::SendAck {
+                DaemonResponse::HelloAck {
+                    version: "1.0".to_string(),
+                    server_name: "can-bridge-daemon".to_string(),
+                    features: vec!["tcp".into(), "binary".into(), "jsonl".into()],
+                };
+
+                DaemonResponse::SendAck {
                     ok: true,
                     error_message: None,
                 }

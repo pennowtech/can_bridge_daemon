@@ -19,55 +19,25 @@ use crate::{
     app::BridgeService,
     domain::{
         frame::{Direction, FrameEvent},
-        protocol::{ClientRequest, ServerResponse},
+        protocol::{ClientRequest, DaemonResponse},
     },
 };
 
-pub struct WsJsonServer {
-    addr: SocketAddr,
-}
-
-impl WsJsonServer {
-    pub fn new(addr: SocketAddr) -> Self {
-        Self { addr }
-    }
-
-    pub async fn run(self, service: BridgeService) -> Result<()> {
-        let app = Router::new()
-            .route("/ws", get(ws_handler))
-            .with_state(Arc::new(service))
-            // IMPORTANT: enable ConnectInfo extraction
-            .into_make_service_with_connect_info::<SocketAddr>();
-
-        let listener = tokio::net::TcpListener::bind(self.addr)
-            .await
-            .with_context(|| format!("failed to bind WS listener on {}", self.addr))?;
-
-        info!(addr=%self.addr, "ws server listening (/ws)");
-
-        axum::serve(listener, app)
-            .await
-            .context("axum serve failed")?;
-
-        Ok(())
-    }
-}
-
-async fn ws_handler(
+pub async fn ws_jsonl_handler(
     ws: WebSocketUpgrade,
     ConnectInfo(peer): ConnectInfo<SocketAddr>,
     State(service): State<Arc<BridgeService>>,
 ) -> impl IntoResponse {
-    ws.on_upgrade(move |socket| handle_ws(socket, peer, service))
+    ws.on_upgrade(move |socket| handle_ws_jsonl(socket, peer, service))
 }
 
-async fn handle_ws(socket: WebSocket, peer: SocketAddr, service: Arc<BridgeService>) {
+async fn handle_ws_jsonl(socket: WebSocket, peer: SocketAddr, service: Arc<BridgeService>) {
     info!(peer=%peer, "ws client connected");
 
     let (mut ws_tx, mut ws_rx) = socket.split();
 
     let subscribed_ifaces: Arc<Mutex<HashSet<String>>> = Arc::new(Mutex::new(HashSet::new()));
-    let (out_tx, mut out_rx) = mpsc::unbounded_channel::<ServerResponse>();
+    let (out_tx, mut out_rx) = mpsc::unbounded_channel::<DaemonResponse>();
     let mut frames_rx: broadcast::Receiver<FrameEvent> = service.subscribe_frames();
 
     let writer = {
@@ -119,28 +89,28 @@ async fn handle_ws(socket: WebSocket, peer: SocketAddr, service: Arc<BridgeServi
         })
     };
 
-    // Hello handshake
-    let hello = ServerResponse::Hello {
+    // HelloAck handshake
+    let hello_ack = DaemonResponse::HelloAck {
         version: "0.9".to_string(),
         features: vec!["ws".into(), "json".into(), "stream".into()],
         server_name: "can-bridge-daemon".to_string(),
     };
 
-    if out_tx.send(hello).is_err() {
-        warn!(peer=%peer, "ws: writer ended before hello");
+    if out_tx.send(hello_ack).is_err() {
+        warn!(peer=%peer, "ws: writer ended before hello_ack");
         return;
     }
 
     let first = match tokio::time::timeout(Duration::from_secs(3), ws_rx.next()).await {
         Ok(v) => v,
         Err(_) => {
-            warn!(peer=%peer, "ws: hello_ack timeout");
+            warn!(peer=%peer, "ws: client_hello timeout");
             return;
         }
     };
 
     let Some(first) = first else {
-        warn!(peer=%peer, "ws: client closed before hello_ack");
+        warn!(peer=%peer, "ws: client closed before client_hello");
         return;
     };
 
@@ -176,20 +146,20 @@ async fn handle_ws(socket: WebSocket, peer: SocketAddr, service: Arc<BridgeServi
     let req: ClientRequest = match serde_json::from_str(&raw) {
         Ok(v) => v,
         Err(e) => {
-            let _ = out_tx.send(ServerResponse::Error {
-                message: format!("invalid hello_ack json: {e}"),
+            let _ = out_tx.send(DaemonResponse::Error {
+                message: format!("invalid client_hello json: {e}"),
             });
             return;
         }
     };
 
     match req {
-        ClientRequest::HelloAck { client, protocol } => {
-            info!(peer=%peer, client=%client, protocol=%protocol, "ws: hello_ack received");
+        ClientRequest::ClientHello { client, protocol } => {
+            info!(peer=%peer, client=%client, protocol=%protocol, "ws: client_hello received");
         }
         other => {
-            let _ = out_tx.send(ServerResponse::Error {
-                message: format!("expected hello_ack, got: {other:?}"),
+            let _ = out_tx.send(DaemonResponse::Error {
+                message: format!("expected client_hello, got: {other:?}"),
             });
             return;
         }
@@ -210,7 +180,7 @@ async fn handle_ws(socket: WebSocket, peer: SocketAddr, service: Arc<BridgeServi
             Message::Binary(b) => match String::from_utf8(b) {
                 Ok(s) => s,
                 Err(_) => {
-                    let _ = out_tx.send(ServerResponse::Error {
+                    let _ = out_tx.send(DaemonResponse::Error {
                         message: "binary message must be utf-8 json".to_string(),
                     });
                     continue;
@@ -225,7 +195,7 @@ async fn handle_ws(socket: WebSocket, peer: SocketAddr, service: Arc<BridgeServi
         let req: ClientRequest = match serde_json::from_str(&raw) {
             Ok(v) => v,
             Err(e) => {
-                let _ = out_tx.send(ServerResponse::Error {
+                let _ = out_tx.send(DaemonResponse::Error {
                     message: format!("invalid json request: {e}"),
                 });
                 continue;
@@ -243,7 +213,7 @@ async fn handle_ws(socket: WebSocket, peer: SocketAddr, service: Arc<BridgeServi
                         set.insert(i.clone());
                     }
                 }
-                let _ = out_tx.send(ServerResponse::Subscribed { ifaces });
+                let _ = out_tx.send(DaemonResponse::Subscribed { ifaces });
                 continue;
             }
             ClientRequest::Unsubscribe => {
@@ -251,7 +221,7 @@ async fn handle_ws(socket: WebSocket, peer: SocketAddr, service: Arc<BridgeServi
                     let mut set = subscribed_ifaces.lock().await;
                     set.clear();
                 }
-                let _ = out_tx.send(ServerResponse::Unsubscribed);
+                let _ = out_tx.send(DaemonResponse::Unsubscribed);
                 continue;
             }
             _ => {}
@@ -271,8 +241,8 @@ async fn should_send_frame(subscribed: &Arc<Mutex<HashSet<String>>>, ev: &FrameE
     set.contains(&ev.iface)
 }
 
-fn frame_event_to_response(ev: FrameEvent) -> ServerResponse {
-    ServerResponse::Frame {
+fn frame_event_to_response(ev: FrameEvent) -> DaemonResponse {
+    DaemonResponse::Frame {
         ts_ms: ev.ts_ms,
         iface: ev.iface,
         dir: match ev.dir {

@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x16proto/can_bridge.proto\x12\x0c\x63\x61nbridge.v1\"\x07\n\x05\x45mpty\"\x15\n\x07PingReq\x12\n\n\x02id\x18\x01 \x01(\x04\"\x16\n\x08PingResp\x12\n\n\x02id\x18\x01 \x01(\x04\"\x1b\n\nIfacesResp\x12\r\n\x05items\x18\x01 \x03(\t\"d\n\x0cSendFrameReq\x12\r\n\x05iface\x18\x01 \x01(\t\x12\n\n\x02id\x18\x02 \x01(\r\x12\r\n\x05is_fd\x18\x03 \x01(\x08\x12\x0b\n\x03\x62rs\x18\x04 \x01(\x08\x12\x0b\n\x03\x65si\x18\x05 \x01(\x08\x12\x10\n\x08\x64\x61ta_hex\x18\x06 \x01(\t\"$\n\x07SendAck\x12\n\n\x02ok\x18\x01 \x01(\x08\x12\r\n\x05\x65rror\x18\x02 \x01(\t\"\x1e\n\x0cSubscribeReq\x12\x0e\n\x06ifaces\x18\x01 \x03(\t\"d\n\nFrameEvent\x12\r\n\x05ts_ms\x18\x01 \x01(\x04\x12\r\n\x05iface\x18\x02 \x01(\t\x12\x0b\n\x03\x64ir\x18\x03 \x01(\t\x12\n\n\x02id\x18\x04 \x01(\r\x12\r\n\x05is_fd\x18\x05 \x01(\x08\x12\x10\n\x08\x64\x61ta_hex\x18\x06 \x01(\t2\x84\x02\n\tCanBridge\x12\x35\n\x04Ping\x12\x15.canbridge.v1.PingReq\x1a\x16.canbridge.v1.PingResp\x12;\n\nListIfaces\x12\x13.canbridge.v1.Empty\x1a\x18.canbridge.v1.IfacesResp\x12>\n\tSendFrame\x12\x1a.canbridge.v1.SendFrameReq\x1a\x15.canbridge.v1.SendAck\x12\x43\n\tSubscribe\x12\x1a.canbridge.v1.SubscribeReq\x1a\x18.canbridge.v1.FrameEvent0\x01\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x16proto/can_bridge.proto\x12\x0c\x63\x61nbridge.v1\"\x07\n\x05\x45mpty\"/\n\x0b\x43lientHello\x12\x0e\n\x06\x63lient\x18\x01 \x01(\t\x12\x10\n\x08protocol\x18\x02 \x01(\t\"B\n\x08HelloAck\x12\x0f\n\x07version\x18\x01 \x01(\t\x12\x13\n\x0bserver_name\x18\x02 \x01(\t\x12\x10\n\x08\x66\x65\x61tures\x18\x03 \x03(\t\"\x15\n\x07PingReq\x12\n\n\x02id\x18\x01 \x01(\x04\"\x16\n\x08PingResp\x12\n\n\x02id\x18\x01 \x01(\x04\"\x1b\n\nIfacesResp\x12\r\n\x05items\x18\x01 \x03(\t\"d\n\x0cSendFrameReq\x12\r\n\x05iface\x18\x01 \x01(\t\x12\n\n\x02id\x18\x02 \x01(\r\x12\r\n\x05is_fd\x18\x03 \x01(\x08\x12\x0b\n\x03\x62rs\x18\x04 \x01(\x08\x12\x0b\n\x03\x65si\x18\x05 \x01(\x08\x12\x10\n\x08\x64\x61ta_hex\x18\x06 \x01(\t\"$\n\x07SendAck\x12\n\n\x02ok\x18\x01 \x01(\x08\x12\r\n\x05\x65rror\x18\x02 \x01(\t\"\x1e\n\x0cSubscribeReq\x12\x0e\n\x06ifaces\x18\x01 \x03(\t\"d\n\nFrameEvent\x12\r\n\x05ts_ms\x18\x01 \x01(\x04\x12\r\n\x05iface\x18\x02 \x01(\t\x12\x0b\n\x03\x64ir\x18\x03 \x01(\t\x12\n\n\x02id\x18\x04 \x01(\r\x12\r\n\x05is_fd\x18\x05 \x01(\x08\x12\x10\n\x08\x64\x61ta_hex\x18\x06 \x01(\t2\xc0\x02\n\tCanBridge\x12:\n\x05Hello\x12\x19.canbridge.v1.ClientHello\x1a\x16.canbridge.v1.HelloAck\x12\x35\n\x04Ping\x12\x15.canbridge.v1.PingReq\x1a\x16.canbridge.v1.PingResp\x12;\n\nListIfaces\x12\x13.canbridge.v1.Empty\x1a\x18.canbridge.v1.IfacesResp\x12>\n\tSendFrame\x12\x1a.canbridge.v1.SendFrameReq\x1a\x15.canbridge.v1.SendAck\x12\x43\n\tSubscribe\x12\x1a.canbridge.v1.SubscribeReq\x1a\x18.canbridge.v1.FrameEvent0\x01\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -33,20 +33,24 @@ if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
   _globals['_EMPTY']._serialized_start=40
   _globals['_EMPTY']._serialized_end=47
-  _globals['_PINGREQ']._serialized_start=49
-  _globals['_PINGREQ']._serialized_end=70
-  _globals['_PINGRESP']._serialized_start=72
-  _globals['_PINGRESP']._serialized_end=94
-  _globals['_IFACESRESP']._serialized_start=96
-  _globals['_IFACESRESP']._serialized_end=123
-  _globals['_SENDFRAMEREQ']._serialized_start=125
-  _globals['_SENDFRAMEREQ']._serialized_end=225
-  _globals['_SENDACK']._serialized_start=227
-  _globals['_SENDACK']._serialized_end=263
-  _globals['_SUBSCRIBEREQ']._serialized_start=265
-  _globals['_SUBSCRIBEREQ']._serialized_end=295
-  _globals['_FRAMEEVENT']._serialized_start=297
-  _globals['_FRAMEEVENT']._serialized_end=397
-  _globals['_CANBRIDGE']._serialized_start=400
-  _globals['_CANBRIDGE']._serialized_end=660
+  _globals['_CLIENTHELLO']._serialized_start=49
+  _globals['_CLIENTHELLO']._serialized_end=96
+  _globals['_HELLOACK']._serialized_start=98
+  _globals['_HELLOACK']._serialized_end=164
+  _globals['_PINGREQ']._serialized_start=166
+  _globals['_PINGREQ']._serialized_end=187
+  _globals['_PINGRESP']._serialized_start=189
+  _globals['_PINGRESP']._serialized_end=211
+  _globals['_IFACESRESP']._serialized_start=213
+  _globals['_IFACESRESP']._serialized_end=240
+  _globals['_SENDFRAMEREQ']._serialized_start=242
+  _globals['_SENDFRAMEREQ']._serialized_end=342
+  _globals['_SENDACK']._serialized_start=344
+  _globals['_SENDACK']._serialized_end=380
+  _globals['_SUBSCRIBEREQ']._serialized_start=382
+  _globals['_SUBSCRIBEREQ']._serialized_end=412
+  _globals['_FRAMEEVENT']._serialized_start=414
+  _globals['_FRAMEEVENT']._serialized_end=514
+  _globals['_CANBRIDGE']._serialized_start=517
+  _globals['_CANBRIDGE']._serialized_end=837
 # @@protoc_insertion_point(module_scope)

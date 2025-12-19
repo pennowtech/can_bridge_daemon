@@ -93,9 +93,9 @@ class JsonlClient:
 def main():
     client = JsonlClient()
 
-    hello = client.recv()
-    assert hello["type"] == "hello", hello
-    client.send({"type": "hello_ack", "client": "py-test", "protocol": "jsonl"})
+    hello_ack = client.recv()
+    assert hello_ack["type"] == "hello_ack", hello_ack
+    client.send({"type": "client_hello", "client": "py-test", "protocol": "jsonl"})
 
     client.send({"type": "list_ifaces"})
     resp = client.recv()
