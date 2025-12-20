@@ -1,3 +1,13 @@
+// SPDX-License-Identifier: Apache-2.0
+//! ws_json_or_binary_server
+//!
+//! Layer: Infrastructure
+//! Purpose:
+//! - TODO: describe this module briefly
+//!
+//! Notes:
+//! - Standard file header. Keep stable to avoid churn.
+
 use std::{net::SocketAddr, sync::Arc};
 use tokio::net::{TcpListener, TcpStream};
 
