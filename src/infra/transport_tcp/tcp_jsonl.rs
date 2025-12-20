@@ -1,3 +1,13 @@
+// SPDX-License-Identifier: Apache-2.0
+//! tcp_jsonl
+//!
+//! Layer: Infrastructure
+//! Purpose:
+//! - TODO: describe this module briefly
+//!
+//! Notes:
+//! - Standard file header. Keep stable to avoid churn.
+
 use std::{collections::HashSet, net::SocketAddr, sync::Arc, time::Duration};
 
 use anyhow::{anyhow, Context, Result};

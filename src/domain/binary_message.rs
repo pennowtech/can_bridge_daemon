@@ -1,3 +1,13 @@
+// SPDX-License-Identifier: Apache-2.0
+//! binary_message
+//!
+//! Layer: Domain
+//! Purpose:
+//! - TODO: describe this module briefly
+//!
+//! Notes:
+//! - Standard file header. Keep stable to avoid churn.
+
 use anyhow::{anyhow, bail, Result};
 
 pub const MAGIC: [u8; 4] = *b"CBD1";
