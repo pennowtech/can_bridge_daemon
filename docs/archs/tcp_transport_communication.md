@@ -1,7 +1,3 @@
-Got it — those errors are because I used `flowchart` syntax (and also included characters like `():` in node labels that some Mermaid renderers choke on). You asked specifically for **`sequenceDiagram`**, so here are **detailed sequence diagrams** for the full `transport_tcp.rs` behavior.
-
----
-
 ## 1) Server accept loop + mode autodetect (JSONL vs Binary)
 
 ```mermaid
@@ -182,7 +178,7 @@ sequenceDiagram
 ```
 
 ---
- **one combined sequence diagram** that shows JSONL and Binary as two lifelines under a single “alt” block
+ **Combined sequence diagram** that shows JSONL and Binary as two lifelines under a single “alt” block
 
 
 ```mermaid
@@ -290,5 +286,5 @@ sequenceDiagram
   C-->>S: close / EOF
   H-->>H: reader ends -> drop out_tx
   W-->>W: out_rx closed -> writer exits
-  H-->>H: await writer; end handler
+  H-->>H: await writer & end handler
 ```

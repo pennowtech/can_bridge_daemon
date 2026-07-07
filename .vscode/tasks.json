@@ -1,0 +1,26 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Run CAN Bridge Daemon",
+            "type": "shell",
+            "command": "RUST_LOG=info cargo run -- --tcp-bind 127.0.0.1:9500 --ws-bind 127.0.0.1:9501 --fake"
+        },
+        {
+            "label": "Test CAN bridge daemon over TCP",
+            "command": "poetry run python test_can_bridge_tcp.py",
+            "options": {
+                "cwd": "${workspaceFolder}/test"
+            }
+        },
+        {
+            "label": "Test CAN bridge daemon over WS JSON",
+            "command": "poetry run python test_can_bridge_ws.py",
+            "options": {
+                "cwd": "${workspaceFolder}/test"
+            }
+        },
+    ]
+}
