@@ -1,98 +1,76 @@
 # CAN Bridge Daemon
 
-The CAN Bridge Daemon exposes Linux SocketCAN interfaces (`can0`, `vcan0`, etc.)
-over multiple network protocols so that **local or remote clients** can:
+CAN Bridge Daemon is a small Linux service that exposes SocketCAN interfaces over network transports. It lets a desktop app, script, test runner, or remote tool list CAN interfaces, subscribe to traffic, and transmit CAN or CAN-FD frames without running directly on the machine that owns the CAN device.
 
-## Features:
+The daemon is usually paired with Rusty CAN Studio, but it is not tied to that app. It speaks simple JSONL over TCP/WebSocket, a binary framing mode for higher throughput, and gRPC for typed clients.
 
-- List CAN interfaces
-- Send CAN / CAN-FD frames
-- Subscribe to RX/TX frame events
-- Monitor and debug CAN traffic remotely
-- basic health check (`ping` → `pong`)
+## What It Does
 
-## It is designed to be:
+- Lists available SocketCAN interfaces such as `can0`, `can1`, and `vcan0`.
+- Subscribes clients to CAN/CAN-FD frame streams.
+- Sends CAN/CAN-FD frames to a selected SocketCAN interface.
+- Reports send acknowledgements after the daemon attempts to send on the selected interface.
+- Supports daemon-side capture filters so clients can receive only matching raw CAN IDs.
+- Provides TCP, WebSocket, and gRPC transports.
+- Works well from WSL, Linux test machines, and headless CAN gateways.
 
-- transport-agnostic
-- efficient for high-rate CAN traffic
-- easy to integrate from Python, Rust, JS, or gRPC clients
+## When To Use It
 
-## Typical Use Cases
+Use this daemon when the CAN interface is not on the same machine as your UI or automation code.
 
-* Remote CAN monitoring dashboards
-* Hardware-in-the-loop testing
-* Headless CAN gateways
-* Distributed automotive tooling
-* UI apps (Web / Mobile / Desktop)
+Common setups:
 
----
+- Rusty CAN Studio on Windows talking to SocketCAN in WSL.
+- A test laptop connected to a Linux CAN gateway.
+- Hardware-in-the-loop scripts that need live CAN traffic over the network.
+- Browser or desktop tools that cannot open SocketCAN directly.
+- Remote debugging of CAN/CAN-FD traffic.
 
-## Supported Protocols
+Typical flow:
 
-The daemon supports **three transports** and **two encodings/modes**:
-
-| Transport | Mode | Use case |
-|---------|----------|---------|
-| TCP | JSONL (text) | Simple scripting, debugging |
-| TCP | Binary | High-performance streaming |
-| WebSocket | JSONL (text) | Browser & tooling friendly |
-| WebSocket | Binary | High-performance remote UI |
-| gRPC | Protobuf | Typed APIs, streaming, tooling |
-
-* Text / JSONL (human friendly, easy to debug)
-* Binary (fast, high throughput, low CPU overhead, stable framing)
-
-Use gRPC when you want:
-
-- typed API
-- easy client generation
-- built-in streaming
-
----
-
-## Documentation
-
-Documents Overview for CAN Bridge Daemon
-
-1. Project overview + quick start: `README.md`
-2. Full user & client integration guide: [user guide](docs/user-guide.md)
-3. Protocol schemas: see source & [protocol docs](docs/protocol.md)
-4. grpc API reference: [gRPC reference](proto/can_bridge.proto)
-5. Example clients: `test/`
-
----
-
-## Handshake Model (Important)
-
-For **TCP and WebSocket** transports:
-
-> **Client MUST send `client_hello` first**. This establishes protocol version, encoding/mode, and client identity.
-
-```txt
-client → daemon : client_hello
-daemon → client : hello_ack
+```text
+client app or script
+        |
+        | TCP, WebSocket, or gRPC
+        v
+can_bridge_daemon on Linux or WSL
+        |
+        | SocketCAN
+        v
+vcan0 / can0 / can1
 ```
 
-For gRPC, it's not needed as gRPC is already binary because of protobuf.
+## Supported Transports
 
-Complete detail of various operations is in the [user guide](docs/user-guide.md).
+| Transport | Mode | Good for |
+| --- | --- | --- |
+| TCP | JSONL text | Scripting and manual debugging |
+| TCP | Binary | Higher throughput clients |
+| WebSocket | JSONL text | Desktop apps, browser-friendly tools, debugging |
+| WebSocket | Binary | Higher throughput remote UI clients |
+| gRPC | Protobuf | Typed clients and generated APIs |
 
----
+For TCP and WebSocket, the client must send `client_hello` first. This tells the daemon which protocol mode the client expects.
 
-## Setup & Run Instructions
+```text
+client -> daemon: client_hello
+daemon -> client: hello_ack
+```
 
-This section explains how to **build, configure, and run** the CAN Bridge Daemon end-to-end.
+For gRPC, the protobuf service handles the API shape, so there is no JSONL handshake.
 
-### Operating System
+## Requirements
 
-* **Linux only** (uses SocketCAN)
+The daemon is Linux-first because it uses SocketCAN.
 
-  * Ubuntu 20.04+
-  * Debian
-  * Arch
-  * WSL2 **with systemd + CAN support** (advanced)
+Tested and expected environments:
 
-### Required system packages
+- Ubuntu or Debian
+- WSL2 with working CAN or virtual CAN support
+- Linux machines with physical CAN adapters
+- Virtual CAN development with `vcan0`
+
+Install system packages:
 
 ```bash
 sudo apt update
@@ -105,149 +83,220 @@ sudo apt install -y \
   iproute2
 ```
 
-> `protobuf-compiler` is required for gRPC code generation.
+`protobuf-compiler` provides `protoc`, which is required during the Rust build because the gRPC code is generated from `proto/can_bridge.proto`.
 
-### Rust Toolchain
-
-Install Rust (stable):
+Install Rust if needed:
 
 ```bash
 curl https://sh.rustup.rs -sSf | sh
 source ~/.cargo/env
 ```
 
-Verify:
+Verify the tools:
 
 ```bash
 rustc --version
 cargo --version
+protoc --version
 ```
 
-### CAN Interface Setup
+## Prepare A CAN Interface
 
-On Linux you usually have:
-
-* physical: `can0`, `can1`
-* virtual (for _dev_): `vcan0`
-
-#### Option A: Physical CAN
-
-Ensure your CAN interface exists:
-
-```bash
-ip link show can0
-```
-
-Bring it up if needed:
-
-```bash
-sudo ip link set can0 up type can bitrate 500000
-```
-
-#### Option B: Virtual CAN (Recommended for development)
-
-If you don’t have a physical CAN, create vcan:
+For development, `vcan0` is the easiest option:
 
 ```bash
 sudo modprobe vcan
 sudo ip link add dev vcan0 type vcan
 sudo ip link set up vcan0
-```
-
-Verify:
-
-```bash
 ip link show vcan0
 ```
 
----
+For a physical interface, bring it up with the required bitrate:
 
-## Build the Project
+```bash
+sudo ip link set can0 up type can bitrate 500000
+ip link show can0
+```
 
-Build from source using `cargo`.
+For CAN-FD hardware, configure the data bitrate as required by your adapter and bus:
 
-### Debug build
+```bash
+sudo ip link set can0 up type can bitrate 500000 dbitrate 2000000 fd on
+```
+
+## Build
+
+If you just need a ready-built package, download the latest release from GitHub:
+
+- CAN Bridge Daemon releases: https://github.com/pennowtech/can_daemon_rust/releases
+
+Debug build:
 
 ```bash
 cargo build
 ```
 
-### Release build (recommended)
+Release build:
 
 ```bash
 cargo build --release
 ```
 
-Binary will be at:
+The release binary is written to:
 
 ```text
-target/release/can-bridge-daemon
+target/release/can_bridge_daemon
 ```
 
----
+## Run
 
-## Run the daemon
-
-Run it with whatever bind addresses/ports you use.
-example ports below are: TCP `9500`, WS `9501`, gRPC `9502`.
-
-### Minimal run (all transports enabled)
+Run all transports with the common local development ports:
 
 ```bash
-can-bridge-daemon \
+cargo run -- \
   --tcp-bind 0.0.0.0:9500 \
-  --ws-bind  0.0.0.0:9501 \
+  --ws-bind 0.0.0.0:9501 \
   --grpc-bind 0.0.0.0:9502
 ```
 
-> **Why sudo?**
-> SocketCAN access usually requires elevated privileges.
+Or run the release binary:
 
-## Connect a client
-
-* WebSocket JSONL: `ws://HOST:9501/ws/jsonl`
-* WebSocket Binary: `ws://HOST:9501/ws/binary`
-* gRPC: `HOST:9502`
-
----
-
-### Expected startup logs
-
-```text
-INFO tcp server listening on 0.0.0.0:9500
-INFO ws server listening (/ws/jsonl, /ws/binary) on 0.0.0.0:9501
-INFO grpc server listening on 0.0.0.0:9502
-INFO detected CAN interfaces: can0, vcan0
+```bash
+./target/release/can_bridge_daemon \
+  --tcp-bind 0.0.0.0:9500 \
+  --ws-bind 0.0.0.0:9501 \
+  --grpc-bind 0.0.0.0:9502
 ```
 
----
+SocketCAN access may require root or capabilities. For quick local testing, `sudo` is often the simplest option:
 
-## Verify with CLI Tools
+```bash
+sudo ./target/release/can_bridge_daemon \
+  --tcp-bind 0.0.0.0:9500 \
+  --ws-bind 0.0.0.0:9501 \
+  --grpc-bind 0.0.0.0:9502
+```
 
-### WebSocket JSONL (text)
+If you do not want to run as root, grant the binary network capabilities:
 
-Using `websocat`:
+```bash
+sudo setcap cap_net_raw,cap_net_admin+eip ./target/release/can_bridge_daemon
+```
+
+## Connect From Rusty CAN Studio
+
+1. Start the daemon where SocketCAN exists.
+2. Open Rusty CAN Studio.
+3. Open Connect.
+4. Select Remote Daemon.
+5. Use the WebSocket host and port, for example `127.0.0.1:9501`.
+6. Click Discover to list daemon interfaces.
+7. Select `vcan0`, `can0`, or another interface.
+8. Save and connect.
+
+For WSL, `localhost` often works, but this depends on your Windows and WSL networking setup. If it does not connect, use the WSL IP address or check firewall rules.
+
+## WebSocket JSONL Example
+
+Install `websocat` if you want a quick manual test.
 
 ```bash
 websocat ws://127.0.0.1:9501/ws/jsonl
 ```
 
-Then type:
+Send a hello first:
 
 ```json
 {"type":"client_hello","client":"websocat","protocol":"json"}
+```
+
+List interfaces:
+
+```json
 {"type":"list_ifaces"}
 ```
 
-### gRPC
+Subscribe to `vcan0`:
 
-Using `grpcurl`:
+```json
+{"type":"subscribe","ifaces":["vcan0"]}
+```
+
+Send a frame:
+
+```json
+{"type":"send_frame","iface":"vcan0","id":405814273,"is_fd":true,"data_hex":"0101"}
+```
+
+## Capture Filters
+
+Capture filters are daemon-side raw CAN ID filters. The daemon should not know protocol-specific words such as service identifier, source address, destination address, or command class. Instead, clients translate those ideas into raw CAN ID masks.
+
+A filter has:
+
+- `id`: the expected bits after masking.
+- `mask`: which CAN ID bits matter.
+
+A frame passes when:
+
+```text
+(frame.id & mask) == (id & mask)
+```
+
+Example: only service identifier `810` when the service identifier is stored in the lower 10 bits:
+
+```text
+id:   0000032A
+mask: 000003FF
+```
+
+Equivalent expression:
+
+```text
+(frame.id & 0x000003FF) == (0x0000032A & 0x000003FF)
+```
+
+More examples:
+
+Only exact CAN ID `0x18203C01`:
+
+```text
+id:   18203C01
+mask: 1FFFFFFF
+```
+
+Only lower 10-bit service identifier `1`:
+
+```text
+id:   00000001
+mask: 000003FF
+```
+
+Only frames where the top 4 command-class bits are `6` in a 29-bit CAN ID layout:
+
+```text
+id:   18000000
+mask: 1C000000
+```
+
+Only frames from a block of IDs where the lower byte is ignored:
+
+```text
+id:   18203C00
+mask: 1FFFFF00
+```
+
+Keep leading zeroes in the UI when entering filters. They make the mask easier to read and reduce mistakes.
+
+## gRPC Quick Check
+
+List services:
 
 ```bash
 grpcurl -plaintext localhost:9502 list
 ```
 
-Handshake:
+Send hello:
 
 ```bash
 grpcurl -plaintext localhost:9502 \
@@ -262,100 +311,131 @@ grpcurl -plaintext localhost:9502 \
   canbridge.v1.CanBridge/ListIfaces
 ```
 
----
+## Test Workflow
 
-## Run the Test Suite
+A simple development loop:
 
-Use the provided Python tests.
+1. Create `vcan0`.
+2. Start the daemon.
+3. Connect Rusty CAN Studio or a test script.
+4. Send frames with `cansend`, Rusty CAN Studio, or a JSONL client.
+5. Watch subscribed frame events.
+6. Add capture filters when you want less traffic.
 
-To run them, first install `poetry`. Refer to [Poetry installation guide](https://python-poetry.org/docs/#installation).
-Instrunctions are also provided under `test/README.md`.
-
-Then tests can be run as follows:
-
-```bash
-poetry run python test/test_can_bridge_ws_binary.py \
-  --url ws://127.0.0.1:9501/ws/binary \
-  --iface vcan0
-```
-
-> Ensure the daemon is already running before executing tests.
-
-There are many test scripts available for different transports and encodings. Refer to `test/README.md` for details.
-
----
-
-## Common Setup Issues
-
-### ❌ `permission denied` on CAN socket
-
-Run daemon as root:
+Run Rust checks:
 
 ```bash
-sudo ./can-bridge-daemon ...
+cargo check
+cargo test
 ```
 
-Or grant capabilities:
+Run Python transport tests if you use the `test/` scripts. See `test/README.md` for the exact setup.
+
+## VS Code And Zed Tasks
+
+This repo includes editor task files under `.vscode/` and `.zed/`. Use them to start common daemon configurations instead of typing long commands every time. The useful tasks are usually variants of:
+
+- Run daemon on local development ports.
+- Run daemon with `vcan0` ready for testing.
+- Build release binary.
+- Run checks or tests.
+
+If you add a new port or interface workflow, update both task files so VS Code and Zed users get the same experience.
+
+## Troubleshooting
+
+### `cargo` is not found
+
+Install Rust and reload the shell:
 
 ```bash
-sudo setcap cap_net_raw,cap_net_admin+eip ./can-bridge-daemon
+curl https://sh.rustup.rs -sSf | sh
+source ~/.cargo/env
 ```
 
----
+### `protoc` is missing
 
-### ❌ `No such device: can0`
-
-You don’t have a CAN interface.
-
-Create `vcan0`:
-
-```bash
-sudo modprobe vcan
-sudo ip link add dev vcan0 type vcan
-sudo ip link set up vcan0
-```
-
----
-
-### ❌ gRPC fails to start
-
-Ensure:
-
-```bash
-protoc --version
-```
-
-If missing:
+Install protobuf compiler:
 
 ```bash
 sudo apt install protobuf-compiler
 ```
 
----
+### Permission denied on CAN socket
 
-## 🔁 Recommended Development Workflow
+Run with `sudo` or grant capabilities:
 
-1. Use **vcan0**
-2. Start daemon in one terminal
-3. Run Python tests in another
-4. Use TCP/WS **JSONL** mode for debugging
-5. Switch to **TCP Binary/ WS Binary / gRPC** for performance
+```bash
+sudo setcap cap_net_raw,cap_net_admin+eip ./target/release/can_bridge_daemon
+```
 
----
+### `No such device: can0`
 
-## Architecture Reminder
+The interface does not exist or is not up. Create `vcan0` for development or bring up the physical interface:
 
-* **TCP & WebSocket**
+```bash
+ip link show
+sudo modprobe vcan
+sudo ip link add dev vcan0 type vcan
+sudo ip link set up vcan0
+```
 
-  * Support **JSONL (text)** and **Binary**
-  * Require `client_hello → hello_ack` as a first message
-  * Streaming used for CAN frames
+### The desktop app connects but sees no frames
 
-* **gRPC**
+Check these in order:
 
-  * Uses protobuf
-  * Streaming used for CAN frames
+- The daemon is subscribed to the correct interface.
+- The interface is up.
+- Frames are actually present on the bus.
+- Capture filters are not excluding everything.
+- The app is connected to the correct WebSocket endpoint.
+- WSL or firewall networking is not blocking traffic.
+
+### `TX:sent` appears but no target responds
+
+`TX:sent` means the daemon accepted the send request and the selected SocketCAN interface accepted the send call. It does not mean another ECU or simulator sent an application-level response. Use live capture, profile decoding, and response matching in the client when you need request/response behavior.
+
+## Project Layout
+
+```text
+src/
+  app and domain code
+  transport implementations
+  SocketCAN integration
+proto/
+  gRPC protobuf definition
+scripts/
+  helper scripts
+docs/
+  protocol and user documentation
+test/
+  client and transport tests
+.vscode/
+  VS Code tasks
+.zed/
+  Zed tasks
+```
+
+## Release
+
+Bump the version in `Cargo.toml`, build a release binary, then package it:
+
+```bash
+cargo build --release
+mkdir -p dist/can_bridge_daemon-v0.1.1-x86_64-linux
+cp target/release/can_bridge_daemon dist/can_bridge_daemon-v0.1.1-x86_64-linux/
+cp README.md dist/can_bridge_daemon-v0.1.1-x86_64-linux/
+tar -C dist -czf dist/can_bridge_daemon-v0.1.1-x86_64-linux.tar.gz can_bridge_daemon-v0.1.1-x86_64-linux
+cd dist && sha256sum can_bridge_daemon-v0.1.1-x86_64-linux.tar.gz > can_bridge_daemon-v0.1.1-x86_64-linux.tar.gz.sha256
+```
+
+## More Documentation
+
+- User guide: `docs/user-guide.md`
+- Protocol details: `docs/protocol.md`
+- gRPC schema: `proto/can_bridge.proto`
+- Test scripts: `test/`
 
 ## License
 
-GPL-3.0 License
+GPL-3.0
