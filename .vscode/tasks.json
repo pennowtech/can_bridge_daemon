@@ -1,26 +1,198 @@
 {
-    // See https://go.microsoft.com/fwlink/?LinkId=733558
-    // for the documentation about the tasks.json format
-    "version": "2.0.0",
-    "tasks": [
-        {
-            "label": "Run CAN Bridge Daemon",
-            "type": "shell",
-            "command": "RUST_LOG=info cargo run -- --tcp-bind 127.0.0.1:9500 --ws-bind 127.0.0.1:9501 --fake"
-        },
-        {
-            "label": "Test CAN bridge daemon over TCP",
-            "command": "poetry run python test_can_bridge_tcp.py",
-            "options": {
-                "cwd": "${workspaceFolder}/test"
-            }
-        },
-        {
-            "label": "Test CAN bridge daemon over WS JSON",
-            "command": "poetry run python test_can_bridge_ws.py",
-            "options": {
-                "cwd": "${workspaceFolder}/test"
-            }
-        },
-    ]
+  "version": "2.0.0",
+  "taskSidebar": {
+    "layout": "both"
+  },
+  "tasks": [
+    {
+      "label": "Run: Daemon all transports",
+      "type": "shell",
+      "command": "RUST_LOG=info cargo run -- --tcp-bind 0.0.0.0:9500 --ws-bind 0.0.0.0:9501 --grpc-bind 0.0.0.0:9502",
+      "problemMatcher": [],
+      "options": {
+        "taskSidebar": {
+          "icon": "$(play)",
+          "color": "colors.green",
+          "groupIcon": "$(radio-tower)",
+          "groupColor": "colors.green"
+        }
+      }
+    },
+    {
+      "label": "Run: Daemon with fake frames",
+      "type": "shell",
+      "command": "RUST_LOG=info cargo run -- --tcp-bind 0.0.0.0:9500 --ws-bind 0.0.0.0:9501 --grpc-bind 0.0.0.0:9502 --fake",
+      "problemMatcher": [],
+      "options": {
+        "taskSidebar": {
+          "icon": "$(debug-start)",
+          "color": "colors.green",
+          "groupIcon": "$(radio-tower)",
+          "groupColor": "colors.green"
+        }
+      }
+    },
+    {
+      "label": "Run: Release daemon",
+      "type": "shell",
+      "command": "RUST_LOG=info ./target/release/can_bridge_daemon --tcp-bind 0.0.0.0:9500 --ws-bind 0.0.0.0:9501 --grpc-bind 0.0.0.0:9502",
+      "dependsOn": [
+        "Build: Release"
+      ],
+      "problemMatcher": [],
+      "options": {
+        "taskSidebar": {
+          "icon": "$(rocket)",
+          "color": "colors.green",
+          "groupIcon": "$(radio-tower)",
+          "groupColor": "colors.green"
+        }
+      }
+    },
+    {
+      "label": "Build: Check",
+      "type": "shell",
+      "command": "cargo check",
+      "problemMatcher": [],
+      "options": {
+        "taskSidebar": {
+          "icon": "$(tools)",
+          "color": "colors.blue",
+          "groupIcon": "$(tools)",
+          "groupColor": "colors.blue"
+        }
+      }
+    },
+    {
+      "label": "Build: Debug",
+      "type": "shell",
+      "command": "cargo build",
+      "problemMatcher": [],
+      "options": {
+        "taskSidebar": {
+          "icon": "$(tools)",
+          "color": "colors.blue",
+          "groupIcon": "$(tools)",
+          "groupColor": "colors.blue"
+        }
+      }
+    },
+    {
+      "label": "Build: Release",
+      "type": "shell",
+      "command": "cargo build --release",
+      "problemMatcher": [],
+      "options": {
+        "taskSidebar": {
+          "icon": "$(package)",
+          "color": "colors.yellow",
+          "groupIcon": "$(tools)",
+          "groupColor": "colors.blue"
+        }
+      }
+    },
+    {
+      "label": "CAN: Setup vcan0",
+      "type": "shell",
+      "command": "sudo modprobe vcan && sudo ip link add dev vcan0 type vcan 2>/dev/null || true; sudo ip link set up vcan0; ip link show vcan0",
+      "problemMatcher": [],
+      "options": {
+        "taskSidebar": {
+          "icon": "$(plug)",
+          "color": "colors.orange",
+          "groupIcon": "$(circuit-board)",
+          "groupColor": "colors.orange"
+        }
+      }
+    },
+    {
+      "label": "CAN: List interfaces",
+      "type": "shell",
+      "command": "ip -details link show type can || true; ip -details link show type vcan || true",
+      "problemMatcher": [],
+      "options": {
+        "taskSidebar": {
+          "icon": "$(list-unordered)",
+          "color": "colors.orange",
+          "groupIcon": "$(circuit-board)",
+          "groupColor": "colors.orange"
+        }
+      }
+    },
+    {
+      "label": "Test: WebSocket JSON",
+      "type": "shell",
+      "command": "poetry run python test_can_bridge_ws.py --url ws://127.0.0.1:9501/ws/text --iface vcan0",
+      "options": {
+        "cwd": "${workspaceFolder}/test",
+        "taskSidebar": {
+          "icon": "$(beaker)",
+          "color": "colors.purple",
+          "groupIcon": "$(beaker)",
+          "groupColor": "colors.purple"
+        }
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Test: WebSocket Binary",
+      "type": "shell",
+      "command": "poetry run python test_can_bridge_ws_binary.py --url ws://127.0.0.1:9501/ws/binary --iface vcan0",
+      "options": {
+        "cwd": "${workspaceFolder}/test",
+        "taskSidebar": {
+          "icon": "$(beaker)",
+          "color": "colors.purple",
+          "groupIcon": "$(beaker)",
+          "groupColor": "colors.purple"
+        }
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Test: TCP JSON",
+      "type": "shell",
+      "command": "poetry run python test_can_bridge_tcp.py --host 127.0.0.1 --port 9500 --iface vcan0",
+      "options": {
+        "cwd": "${workspaceFolder}/test",
+        "taskSidebar": {
+          "icon": "$(beaker)",
+          "color": "colors.purple",
+          "groupIcon": "$(beaker)",
+          "groupColor": "colors.purple"
+        }
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Test: TCP Binary",
+      "type": "shell",
+      "command": "poetry run python test_can_bridge_tcp_binary.py --host 127.0.0.1 --port 9500 --iface vcan0",
+      "options": {
+        "cwd": "${workspaceFolder}/test",
+        "taskSidebar": {
+          "icon": "$(beaker)",
+          "color": "colors.purple",
+          "groupIcon": "$(beaker)",
+          "groupColor": "colors.purple"
+        }
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Test: gRPC",
+      "type": "shell",
+      "command": "poetry run python test_can_bridge_grpc.py --addr 127.0.0.1:9502 --iface vcan0",
+      "options": {
+        "cwd": "${workspaceFolder}/test",
+        "taskSidebar": {
+          "icon": "$(beaker)",
+          "color": "colors.purple",
+          "groupIcon": "$(beaker)",
+          "groupColor": "colors.purple"
+        }
+      },
+      "problemMatcher": []
+    }
+  ]
 }

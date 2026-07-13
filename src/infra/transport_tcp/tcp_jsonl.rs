@@ -128,7 +128,7 @@ pub async fn run_jsonl_session(
         };
 
         match request {
-            ClientRequest::Subscribe { ifaces } => {
+            ClientRequest::Subscribe { ifaces, .. } => {
                 update_subscription_set(&subscribed_ifaces, ifaces.clone()).await;
                 let _ = outgoing_sender.send(DaemonResponse::Subscribed { ifaces });
             }

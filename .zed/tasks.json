@@ -1,99 +1,161 @@
 [
-    {
-        "label": "Run CAN Bridge Daemon",
-        "command": "RUST_LOG=info cargo run -- --tcp-bind 127.0.0.1:9500 --ws-bind 127.0.0.1:9501",
-        "cwd": "$ZED_WORKTREE_ROOT",
-        "shell": {
-            "with_arguments": {
-                "program": "/bin/bash",
-                "args": ["-lc"]
-            }
-        },
-        "reveal": "always",
-        "use_new_terminal": true
+  {
+    "label": "Run: Daemon all transports",
+    "command": "RUST_LOG=info cargo run -- --tcp-bind 0.0.0.0:9500 --ws-bind 0.0.0.0:9501 --grpc-bind 0.0.0.0:9502",
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "shell": {
+      "with_arguments": {
+        "program": "/bin/bash",
+        "args": ["-lc"]
+      }
     },
-    {
-        "label": "Test CAN bridge daemon over TCP",
-        "command": "poetry run python test_can_bridge_tcp.py",
-        "cwd": "$ZED_WORKTREE_ROOT/test",
-        "shell": {
-            "with_arguments": {
-                "program": "/bin/bash",
-                "args": ["-lc"]
-            }
-        },
-        "reveal": "always"
+    "reveal": "always",
+    "use_new_terminal": true
+  },
+  {
+    "label": "Run: Daemon with fake frames",
+    "command": "RUST_LOG=info cargo run -- --tcp-bind 0.0.0.0:9500 --ws-bind 0.0.0.0:9501 --grpc-bind 0.0.0.0:9502 --fake",
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "shell": {
+      "with_arguments": {
+        "program": "/bin/bash",
+        "args": ["-lc"]
+      }
     },
-    {
-        "label": "Test CAN bridge daemon over binary TCP",
-        "command": "poetry run python test_can_bridge_tcp_binary.py",
-        "cwd": "$ZED_WORKTREE_ROOT/test",
-        "shell": {
-            "with_arguments": {
-                "program": "/bin/bash",
-                "args": ["-lc"]
-            }
-        },
-        "reveal": "always"
+    "reveal": "always",
+    "use_new_terminal": true
+  },
+  {
+    "label": "Run: Release daemon",
+    "command": "cargo build --release && RUST_LOG=info ./target/release/can_bridge_daemon --tcp-bind 0.0.0.0:9500 --ws-bind 0.0.0.0:9501 --grpc-bind 0.0.0.0:9502",
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "shell": {
+      "with_arguments": {
+        "program": "/bin/bash",
+        "args": ["-lc"]
+      }
     },
-    {
-        "label": "Test CAN bridge daemon over Websockets",
-        "command": "poetry run python test_can_bridge_ws.py",
-        "cwd": "$ZED_WORKTREE_ROOT/test",
-        "shell": {
-            "with_arguments": {
-                "program": "/bin/bash",
-                "args": ["-lc"]
-            }
-        },
-        "reveal": "always"
+    "reveal": "always",
+    "use_new_terminal": true
+  },
+  {
+    "label": "Build: Check",
+    "command": "cargo check",
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "shell": {
+      "with_arguments": {
+        "program": "/bin/bash",
+        "args": ["-lc"]
+      }
     },
-    {
-        "label": "Test CAN bridge daemon over binary Websockets",
-        "command": "poetry run python test_can_bridge_ws_binary.py",
-        "cwd": "$ZED_WORKTREE_ROOT/test",
-        "shell": {
-            "with_arguments": {
-                "program": "/bin/bash",
-                "args": ["-lc"]
-            }
-        },
-        "reveal": "always"
+    "reveal": "always"
+  },
+  {
+    "label": "Build: Debug",
+    "command": "cargo build",
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "shell": {
+      "with_arguments": {
+        "program": "/bin/bash",
+        "args": ["-lc"]
+      }
     },
-    {
-        "label": "Test CAN bridge daemon over gRPC",
-        "command": "poetry run python test_can_bridge_grpc.py",
-        "cwd": "$ZED_WORKTREE_ROOT/test",
-        "shell": {
-            "with_arguments": {
-                "program": "/bin/bash",
-                "args": ["-lc"]
-            }
-        },
-        "reveal": "always"
+    "reveal": "always"
+  },
+  {
+    "label": "Build: Release",
+    "command": "cargo build --release",
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "shell": {
+      "with_arguments": {
+        "program": "/bin/bash",
+        "args": ["-lc"]
+      }
     },
-    {
-        "label": "Build release binary",
-        "command": "cargo build --release",
-        "cwd": "$ZED_WORKTREE_ROOT",
-        "shell": {
-            "with_arguments": {
-                "program": "/bin/bash",
-                "args": ["-lc"]
-            }
-        },
-        "reveal": "always"
+    "reveal": "always"
+  },
+  {
+    "label": "CAN: Setup vcan0",
+    "command": "sudo modprobe vcan && sudo ip link add dev vcan0 type vcan 2>/dev/null || true; sudo ip link set up vcan0; ip link show vcan0",
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "shell": {
+      "with_arguments": {
+        "program": "/bin/bash",
+        "args": ["-lc"]
+      }
     },
-    {
-        "label": " App Test + Replay (spawns 2nd daemon)",
-        "command": "cargo build --release && ./test/test_can_bridge.py --bridge-bin ./target/release/can_bridge_daemon",
-        "cwd": "$ZED_WORKTREE_ROOT",
-        "shell": {
-            "with_arguments": {
-                "program": "/bin/bash",
-                "args": ["-lc"]
-            }
-        },
-        "reveal": "always"
-    }
+    "reveal": "always"
+  },
+  {
+    "label": "CAN: List interfaces",
+    "command": "ip -details link show type can || true; ip -details link show type vcan || true",
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "shell": {
+      "with_arguments": {
+        "program": "/bin/bash",
+        "args": ["-lc"]
+      }
+    },
+    "reveal": "always"
+  },
+  {
+    "label": "Test: WebSocket JSON",
+    "command": "poetry run python test_can_bridge_ws.py --url ws://127.0.0.1:9501/ws/text --iface vcan0",
+    "cwd": "$ZED_WORKTREE_ROOT/test",
+    "shell": {
+      "with_arguments": {
+        "program": "/bin/bash",
+        "args": ["-lc"]
+      }
+    },
+    "reveal": "always"
+  },
+  {
+    "label": "Test: WebSocket Binary",
+    "command": "poetry run python test_can_bridge_ws_binary.py --url ws://127.0.0.1:9501/ws/binary --iface vcan0",
+    "cwd": "$ZED_WORKTREE_ROOT/test",
+    "shell": {
+      "with_arguments": {
+        "program": "/bin/bash",
+        "args": ["-lc"]
+      }
+    },
+    "reveal": "always"
+  },
+  {
+    "label": "Test: TCP JSON",
+    "command": "poetry run python test_can_bridge_tcp.py --host 127.0.0.1 --port 9500 --iface vcan0",
+    "cwd": "$ZED_WORKTREE_ROOT/test",
+    "shell": {
+      "with_arguments": {
+        "program": "/bin/bash",
+        "args": ["-lc"]
+      }
+    },
+    "reveal": "always"
+  },
+  {
+    "label": "Test: TCP Binary",
+    "command": "poetry run python test_can_bridge_tcp_binary.py --host 127.0.0.1 --port 9500 --iface vcan0",
+    "cwd": "$ZED_WORKTREE_ROOT/test",
+    "shell": {
+      "with_arguments": {
+        "program": "/bin/bash",
+        "args": ["-lc"]
+      }
+    },
+    "reveal": "always"
+  },
+  {
+    "label": "Test: gRPC",
+    "command": "poetry run python test_can_bridge_grpc.py --addr 127.0.0.1:9502 --iface vcan0",
+    "cwd": "$ZED_WORKTREE_ROOT/test",
+    "shell": {
+      "with_arguments": {
+        "program": "/bin/bash",
+        "args": ["-lc"]
+      }
+    },
+    "reveal": "always"
+  }
 ]

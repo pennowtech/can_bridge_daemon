@@ -10,6 +10,22 @@
 
 use serde::{Deserialize, Serialize};
 
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct FrameFilter {
+    #[serde(default)]
+    pub iface: Option<String>,
+    #[serde(default)]
+    pub id: Option<u32>,
+    #[serde(default)]
+    pub id_mask: Option<u32>,
+    #[serde(default)]
+    pub is_fd: Option<bool>,
+    #[serde(default)]
+    pub min_len: Option<usize>,
+    #[serde(default)]
+    pub max_len: Option<usize>,
+}
+
 /// Requests sent *to* the daemon (from clients).
 ///
 /// We use serde's "tag" representation:
@@ -27,7 +43,11 @@ pub enum ClientRequest {
     ListIfaces,
 
     /// subscribe to can frames from specific interfaces
-    Subscribe { ifaces: Vec<String> },
+    Subscribe {
+        ifaces: Vec<String>,
+        #[serde(default)]
+        filters: Vec<FrameFilter>,
+    },
 
     /// stop receiving can frames
     Unsubscribe,
