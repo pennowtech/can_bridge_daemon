@@ -29,7 +29,7 @@ use crate::{
     app::BridgeService,
     domain::{
         frame::{Direction, FrameEvent},
-        protocol::{ClientRequest, DaemonResponse},
+        protocol::{ClientRequest, DaemonResponse, FrameFilter},
     },
 };
 
@@ -47,11 +47,13 @@ async fn handle_ws_jsonl(socket: WebSocket, peer: SocketAddr, service: Arc<Bridg
     let (mut ws_tx, mut ws_rx) = socket.split();
 
     let subscribed_ifaces: Arc<Mutex<HashSet<String>>> = Arc::new(Mutex::new(HashSet::new()));
+    let frame_filters: Arc<Mutex<Vec<FrameFilter>>> = Arc::new(Mutex::new(Vec::new()));
     let (out_tx, mut out_rx) = mpsc::unbounded_channel::<DaemonResponse>();
     let mut frames_rx: broadcast::Receiver<FrameEvent> = service.subscribe_frames();
 
     let writer = {
         let subscribed_ifaces = subscribed_ifaces.clone();
+        let frame_filters = frame_filters.clone();
         tokio::spawn(async move {
             loop {
                 tokio::select! {
@@ -73,7 +75,7 @@ async fn handle_ws_jsonl(socket: WebSocket, peer: SocketAddr, service: Arc<Bridg
                     ev = frames_rx.recv() => {
                         match ev {
                             Ok(ev) => {
-                                if should_send_frame(&subscribed_ifaces, &ev).await {
+                                if should_send_frame(&subscribed_ifaces, &frame_filters, &ev).await {
                                     let resp = frame_event_to_response(ev);
                                     let txt = match serde_json::to_string(&resp) {
                                         Ok(s) => s,
@@ -215,13 +217,17 @@ async fn handle_ws_jsonl(socket: WebSocket, peer: SocketAddr, service: Arc<Bridg
         debug!(peer=%peer, req=?req, "ws: parsed request");
 
         match req {
-            ClientRequest::Subscribe { ifaces } => {
+            ClientRequest::Subscribe { ifaces, filters } => {
                 {
                     let mut set = subscribed_ifaces.lock().await;
                     set.clear();
                     for i in &ifaces {
                         set.insert(i.clone());
                     }
+                }
+                {
+                    let mut active_filters = frame_filters.lock().await;
+                    *active_filters = filters;
                 }
                 let _ = out_tx.send(DaemonResponse::Subscribed { ifaces });
                 continue;
@@ -231,6 +237,7 @@ async fn handle_ws_jsonl(socket: WebSocket, peer: SocketAddr, service: Arc<Bridg
                     let mut set = subscribed_ifaces.lock().await;
                     set.clear();
                 }
+                frame_filters.lock().await.clear();
                 let _ = out_tx.send(DaemonResponse::Unsubscribed);
                 continue;
             }
@@ -246,9 +253,49 @@ async fn handle_ws_jsonl(socket: WebSocket, peer: SocketAddr, service: Arc<Bridg
     info!(peer=%peer, "ws client disconnected");
 }
 
-async fn should_send_frame(subscribed: &Arc<Mutex<HashSet<String>>>, ev: &FrameEvent) -> bool {
+async fn should_send_frame(
+    subscribed: &Arc<Mutex<HashSet<String>>>,
+    filters: &Arc<Mutex<Vec<FrameFilter>>>,
+    ev: &FrameEvent,
+) -> bool {
     let set = subscribed.lock().await;
-    set.contains(&ev.iface)
+    if !set.contains(&ev.iface) {
+        return false;
+    }
+    drop(set);
+
+    let filters = filters.lock().await;
+    filters.is_empty() || filters.iter().any(|filter| frame_matches_filter(ev, filter))
+}
+
+fn frame_matches_filter(ev: &FrameEvent, filter: &FrameFilter) -> bool {
+    if let Some(iface) = &filter.iface {
+        if &ev.iface != iface {
+            return false;
+        }
+    }
+    if let Some(is_fd) = filter.is_fd {
+        if ev.is_fd != is_fd {
+            return false;
+        }
+    }
+    if let Some(min_len) = filter.min_len {
+        if ev.data.len() < min_len {
+            return false;
+        }
+    }
+    if let Some(max_len) = filter.max_len {
+        if ev.data.len() > max_len {
+            return false;
+        }
+    }
+    if let Some(expected_id) = filter.id {
+        let mask = filter.id_mask.unwrap_or(u32::MAX);
+        if ev.id & mask != expected_id & mask {
+            return false;
+        }
+    }
+    true
 }
 
 fn frame_event_to_response(ev: FrameEvent) -> DaemonResponse {
